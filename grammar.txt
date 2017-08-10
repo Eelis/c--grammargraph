@@ -2,10 +2,8 @@ keywords
   typedef-name
     identifier
   namespace-name
-    original-namespace-name
-    namespace-alias
-  original-namespace-name
     identifier
+    namespace-alias
   namespace-alias
     identifier
   class-name
@@ -55,8 +53,12 @@ lexical conventions
     "." digit
     pp-number digit
     pp-number identifier-nondigit
+    pp-number "'" digit
+    pp-number "'" nondigit
     pp-number "e" sign
     pp-number "E" sign
+    pp-number "p" sign
+    pp-number "P" sign
     pp-number "."
   identifier
     identifier-nondigit
@@ -65,7 +67,6 @@ lexical conventions
   identifier-nondigit
     nondigit
     universal-character-name
-    informal: other implementation-defined characters
   nondigit
     ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "", "y", "z", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z", "_"]
   digit
@@ -81,23 +82,33 @@ lexical conventions
     pointer-literal
     user-defined-literal
   integer-literal
+    binary-literal integer-suffix_opt
     decimal-literal integer-suffix_opt
     octal-literal integer-suffix_opt
     hexadecimal-literal integer-suffix_opt
-  decimal-literal
-    nonzero-digit
-    decimal-literal digit
+  binary-literal
+    "0b" binary-digit
+    "0B" binary-digit
+    binary-literal "'"_opt binary-digit
   octal-literal
     "0"
-    octal-literal octal-digit
+    octal-literal "'"_opt octal-digit
+  decimal-literal
+    nonzero-digit
+    decimal-literal "'"_opt digit
   hexadecimal-literal
-    "0x" hexadecimal-digit
-    "0X" hexadecimal-digit
-    hexadecimal-literal hexadecimal-digit
-  nonzero-digit
-    ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+    hexadecimal-prefix hexadecimal-digit-sequence
+  binary-digit
+    ["0", "1"]
   octal-digit
     ["0", "1", "2", "3", "4", "5", "6", "7"]
+  nonzero-digit
+    ["1", "2", "3", "4", "5", "6", "7", "8", "9"]
+  hexadecimal-prefix
+    ["0x", "0X"]
+  hexadecimal-digit-sequence
+    hexadecimal-digit
+    hexadecimal-digit-sequence "'"_opt hexadecimal-digit
   hexadecimal-digit
     ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f", "A", "B", "C", "D", "E", "F"]
   integer-suffix
@@ -112,10 +123,9 @@ lexical conventions
   long-long-suffix
     ["ll", "LL"]
   character-literal
-    "'" c-char-sequence "'"
-    "u'" c-char-sequence "'"
-    "U'" c-char-sequence "'"
-    "L'" c-char-sequence "'"
+    encoding-prefix_opt "'" c-char-sequence "'"
+  encoding-prefix
+    ["u8", "u", "U", "L"]
   c-char-sequence
     c-char
     c-char-sequence c-char
@@ -137,26 +147,36 @@ lexical conventions
     "\\x" hexadecimal-digit
     hexadecimal-escape-sequence hexadecimal-digit
   floating-literal
+    decimal-floating-literal
+    hexadecimal-floating-literal
+  decimal-floating-literal
     fractional-constant exponent-part_opt floating-suffix_opt
     digit-sequence exponent-part floating-suffix_opt
+  hexadecimal-floating-literal
+    hexadecimal-prefix hexadecimal-fractional-constant binary-exponent-part floating-suffix_opt
+    hexadecimal-prefix hexadecimal-digit-sequence binary-exponent-part floating-suffix_opt
   fractional-constant
     digit-sequence_opt "." digit-sequence
     digit-sequence "."
+  hexadecimal-fractional-constant
+    hexadecimal-digit-sequence_opt "." hexadecimal-digit-sequence
+    hexadecimal-digit-sequence "."
   exponent-part
     "e" sign_opt digit-sequence
     "E" sign_opt digit-sequence
+  binary-exponent-part
+    "p" sign_opt digit-sequence
+    "P" sign_opt digit-sequence
   sign
     ["+", "-"]
   digit-sequence
     digit
-    digit-sequence digit
+    digit-sequence "'"_opt digit
   floating-suffix
     ["f", "l", "F", "L"]
   string-literal
     encoding-prefix_opt "\"" s-char-sequence_opt "\""
     encoding-prefix_opt "R" raw-string
-  encoding-prefix
-    ["u8", "u", "U", "L"]
   s-char-sequence
     s-char
     s-char-sequence s-char
@@ -182,21 +202,24 @@ lexical conventions
     "nullptr"
   user-defined-literal
     user-defined-integer-literal
-    user-defined-ﬂoating-literal
+    user-defined-floating-literal
     user-defined-string-literal
     user-defined-character-literal
   user-defined-integer-literal
-    decimal-literal ud-suﬃx
-    octal-literal ud-suﬃx
-    hexadecimal-literal ud-suﬃx
-  user-defined-ﬂoating-literal
-    fractional-constant exponent-part_opt ud-suﬃx
-    digit-sequence exponent-part ud-suﬃx
+    decimal-literal ud-suffix
+    octal-literal ud-suffix
+    hexadecimal-literal ud-suffix
+    binary-literal ud-suffix
+  user-defined-floating-literal
+    fractional-constant exponent-part_opt ud-suffix
+    digit-sequence exponent-part ud-suffix
+    hexadecimal-prefix hexadecimal-fractional-constant binary-exponent-part ud-suffix
+    hexadecimal-prefix hexadecimal-digit-sequence binary-exponent-part ud-suffix
   user-defined-string-literal
-    string-literal ud-suﬃx
+    string-literal ud-suffix
   user-defined-character-literal
-    character-literal ud-suﬃx
-  ud-suﬃx
+    character-literal ud-suffix
+  ud-suffix
     identifier
 basic concepts
   translation-unit
@@ -208,6 +231,8 @@ expressions
     "(" expression ")"
     id-expression
     lambda-expression
+    fold-expression
+    requires-expression
   id-expression
     unqualified-id
     qualified-id
@@ -221,20 +246,20 @@ expressions
     template-id
   qualified-id
     nested-name-specifier "template"_opt unqualified-id
-    "::" identifier
-    "::" operator-function-id
-    "::" literal-operator-id
-    "::" template-id
   nested-name-specifier
-    "::"_opt type-name "::"
-    "::"_opt namespace-name "::"
+    "::"
+    type-name "::"
+    namespace-name "::"
     decltype-specifier "::"
     nested-name-specifier identifier "::"
     nested-name-specifier "template"_opt simple-template-id "::"
   lambda-expression
     lambda-introducer lambda-declarator_opt compound-statement
+    lambda-introducer "<" template-parameter-list ">" lambda-declarator_opt compound-statement
   lambda-introducer
     "[" lambda-capture_opt "]"
+  lambda-declarator
+    "(" parameter-declaration-clause ")" decl-specifier-seq_opt noexcept-specifier_opt attribute-specifier-seq_opt trailing-return-type_opt
   lambda-capture
     capture-default
     capture-list
@@ -246,15 +271,50 @@ expressions
     capture "..."_opt
     capture-list "," capture "..."_opt
   capture
+    simple-capture
+    init-capture
+  simple-capture
     identifier
     "&" identifier
     "this"
-  lambda-declarator
-    "(" parameter-declaration-clause ")" "mutable"_opt exception-specification_opt attribute-specifier-seq_opt trailing-return-type_opt
+    "*" "this"
+  init-capture
+    identifier initializer
+    "&" identifier initializer
+  fold-expression
+    "(" cast-expression fold-operator "..." ")"
+    "(" "..." fold-operator cast-expression ")"
+    "(" cast-expression fold-operator "..." fold-operator cast-expression ")"
+  fold-operator
+    ["+", "-", "*"]
+  requires-expression
+    "requires" requirement-parameter-list_opt requirement-body
+  requirement-parameter-list
+    "(" parameter-declaration-clause_opt ")"
+  requirement-body
+    "{" requirement-seq "}"
+  requirement-seq
+    requirement
+    requirement-seq requirement
+  requirement
+    simple-requirement
+    type-requirement
+    compound-requirement
+    nested-requirement
+  simple-requirement
+    expression ";"
+  type-requirement
+    "typename" nested-name-specifier_opt type-name ";"
+  compound-requirement
+    "{" expression "}" "noexcept"_opt return-type-requirement_opt ";"
+  return-type-requirement
+    trailing-return-type
+    "->" cv-qualifier-seq_opt constrained-parameter cv-qualifier-seq_opt abstract-declarator_opt
+  nested-requirement
+    "requires" constraint-expression ";"
   postfix-expression
     primary-expression
-    postfix-expression "[" expression "]"
-    postfix-expression "[" braced-init-list "]"
+    postfix-expression "[" expr-or-braced-init-list "]"
     postfix-expression "(" expression-list_opt ")"
     simple-type-specifier "(" expression-list_opt ")"
     typename-specifier "(" expression-list_opt ")"
@@ -277,7 +337,7 @@ expressions
   pseudo-destructor-name
     nested-name-specifier_opt type-name "::" "~" type-name
     nested-name-specifier "template" simple-template-id "::" "~" type-name
-    nested-name-specifier_opt "~" type-name
+    "~" type-name
     "~" decltype-specifier
   unary-expression
     postfix-expression
@@ -362,6 +422,8 @@ expressions
   conditional-expression
     logical-or-expression
     logical-or-expression "?" expression ":" assignment-expression
+  throw-expression
+    "throw" assignment-expression_opt
   assignment-expression
     conditional-expression
     logical-or-expression assignment-operator assignment-expression
@@ -383,6 +445,12 @@ statements
     attribute-specifier-seq_opt jump-statement
     declaration-statement
     attribute-specifier-seq_opt try-block
+  init-statement
+    expression-statement
+    simple-declaration
+  condition
+    expression
+    attribute-specifier-seq_opt decl-specifier-seq declarator brace-or-equal-initializer
   labeled-statement
     attribute-specifier-seq_opt identifier ":" statement
     attribute-specifier-seq_opt "case" constant-expression ":" statement
@@ -395,31 +463,23 @@ statements
     statement
     statement-seq statement
   selection-statement
-    "if" "(" condition ")" statement
-    "if" "(" condition ")" statement "else" statement
-    "switch" "(" condition ")" statement
-  condition
-    expression
-    attribute-specifier-seq_opt decl-specifier-seq declarator "=" initializer-clause
-    attribute-specifier-seq_opt decl-specifier-seq declarator braced-init-list
+    "if" "constexpr"_opt "(" condition ")" statement
+    "if" "constexpr"_opt "(" condition ")" statement "else" statement
+    "switch" "(" init-statement_opt condition ")" statement
   iteration-statement
     "while" "(" condition ")" statement
     "do" statement "while" "(" expression ")" ";"
-    "for" "(" for-init-statement condition_opt ";" expression_opt ")" statement
+    "for" "(" init-statement condition_opt ";" expression_opt ")" statement
     "for" "(" for-range-declaration ":" for-range-initializer ")" statement
-  for-init-statement
-    expression-statement
-    simple-declaration
   for-range-declaration
     attribute-specifier-seq_opt decl-specifier-seq declarator
+    attribute-specifier-seq_opt decl-specifier-seq ref-qualifier_opt "[" identifier-list "]"
   for-range-initializer
-    expression
-    braced-init-list
+    expr-or-braced-init-list
   jump-statement
     "break" ";"
     "continue" ";"
-    "return" expression_opt ";"
-    "return" braced-init-list ";"
+    "return" expr-or-braced-init-list_opt ";"
     "goto" identifier ";"
   declaration-statement
     block-declaration
@@ -429,8 +489,10 @@ declarations
     declaration-seq declaration
   declaration
     block-declaration
+    nodeclspec-function-declaration
     function-definition
     template-declaration
+    deduction-guide
     explicit-instantiation
     explicit-specialization
     linkage-specification
@@ -446,12 +508,16 @@ declarations
     static-assert-declaration
     alias-declaration
     opaque-enum-declaration
+  nodeclspec-function-declaration
+    attribute-specifier-seq_opt declarator ";"
   alias-declaration
-    "using" identifier attribute-specifier-seq_opt "=" type-id ";"
+    "using" identifier attribute-specifier-seq_opt "=" defining-type-id ";"
   simple-declaration
-    decl-specifier-seq_opt init-declarator-list_opt ";"
+    decl-specifier-seq init-declarator-list_opt ";"
     attribute-specifier-seq decl-specifier-seq_opt init-declarator-list ";"
+    attribute-specifier-seq_opt decl-specifier-seq ref-qualifier_opt "[" identifier-list "]" initializer ";"
   static-assert-declaration
+    "static_assert" "(" constant-expression ")" ";"
     "static_assert" "(" constant-expression "," string-literal ")" ";"
   empty-declaration
     ";"
@@ -459,31 +525,26 @@ declarations
     attribute-specifier-seq ";"
   decl-specifier
     storage-class-specifier
-    type-specifier
+    defining-type-specifier
     function-specifier
     "friend"
     "typedef"
     "constexpr"
+    "inline"
   decl-specifier-seq
     decl-specifier attribute-specifier-seq_opt
     decl-specifier decl-specifier-seq
   storage-class-specifier
-    "register"
     "static"
     "thread_local"
     "extern"
     "mutable"
   function-specifier
-    "inline"
     "virtual"
     "explicit"
   typedef-name
     identifier
   type-specifier
-    trailing-type-specifier
-    class-specifier
-    enum-specifier
-  trailing-type-specifier
     simple-type-specifier
     elaborated-type-specifier
     typename-specifier
@@ -491,12 +552,17 @@ declarations
   type-specifier-seq
     type-specifier attribute-specifier-seq_opt
     type-specifier type-specifier-seq
-  trailing-type-specifier-seq
-    trailing-type-specifier attribute-specifier-seq_opt
-    trailing-type-specifier trailing-type-specifier-seq
+  defining-type-specifier
+    type-specifier
+    class-specifier
+    enum-specifier
+  defining-type-specifier-seq
+    defining-type-specifier attribute-specifier-seq_opt
+    defining-type-specifier defining-type-specifier-seq
   simple-type-specifier
     nested-name-specifier_opt type-name
     nested-name-specifier "template" simple-template-id
+    nested-name-specifier_opt template-name
     ["char", "char16_t", "char32_t", "wchar_t", "bool", "short", "int", "long", "signed", "unsigned", "float", "double", "void", "auto"]
     decltype-specifier
   type-name
@@ -506,8 +572,10 @@ declarations
     simple-template-id
   decltype-specifier
     "decltype" "(" expression ")"
+    "decltype" "(" "auto" ")"
   elaborated-type-specifier
     class-key attribute-specifier-seq_opt nested-name-specifier_opt identifier
+    class-key simple-template-id
     class-key nested-name-specifier_opt "template"_opt simple-template-id
     "enum" nested-name-specifier_opt identifier
   enum-name
@@ -516,10 +584,11 @@ declarations
     enum-head "{" enumerator-list_opt "}"
     enum-head "{" enumerator-list "," "}"
   enum-head
-    enum-key attribute-specifier-seq_opt identifier_opt enum-base_opt
-    enum-key attribute-specifier-seq_opt nested-name-specifier identifier enum-base_opt
+    enum-key attribute-specifier-seq_opt enum-head-name_opt enum-base_opt
+  enum-head-name
+    nested-name-specifier_opt identifier
   opaque-enum-declaration
-    enum-key attribute-specifier-seq_opt identifier enum-base_opt ";"
+    enum-key attribute-specifier-seq_opt nested-name-specifier_opt identifier enum-base_opt ";"
   enum-key
     "enum"
     "enum" "class"
@@ -533,24 +602,23 @@ declarations
     enumerator
     enumerator "=" constant-expression
   enumerator
-    identifier
+    identifier attribute-specifier-seq_opt
   namespace-name
-    original-namespace-name
-    namespace-alias
-  original-namespace-name
     identifier
+    namespace-alias
   namespace-definition
     named-namespace-definition
     unnamed-namespace-definition
+    nested-namespace-definition
   named-namespace-definition
-    original-namespace-definition
-    extension-namespace-definition
-  original-namespace-definition
-    "inline"_opt "namespace" identifier "{" namespace-body "}"
-  extension-namespace-definition
-    "inline"_opt "namespace" original-namespace-name "{" namespace-body "}"
+    "inline"_opt "namespace" attribute-specifier-seq_opt identifier "{" namespace-body "}"
   unnamed-namespace-definition
-    "inline"_opt "namespace" "{" namespace-body "}"
+    "inline"_opt "namespace" attribute-specifier-seq_opt "{" namespace-body "}"
+  nested-namespace-definition
+    "namespace" enclosing-namespace-specifier "::" identifier "{" namespace-body "}"
+  enclosing-namespace-specifier
+    identifier
+    enclosing-namespace-specifier "::" identifier
   namespace-body
     declaration-seq_opt
   namespace-alias
@@ -560,23 +628,29 @@ declarations
   qualified-namespace-specifier
     nested-name-specifier_opt namespace-name
   using-declaration
-    "using" "typename"_opt nested-name-specifier unqualified-id ";"
-    "using" "::" unqualified-id ";"
+    "using" using-declarator-list ";"
+  using-declarator-list
+    using-declarator "..."_opt
+    using-declarator-list "," using-declarator "..."_opt
+  using-declarator
+    "typename"_opt nested-name-specifier unqualified-id
   using-directive
     attribute-specifier-seq_opt "using" "namespace" nested-name-specifier_opt namespace-name ";"
   asm-definition
-    "asm" "(" string-literal ")" ";"
+    attribute-specifier-seq_opt "asm" "(" string-literal ")" ";"
   linkage-specification
     "extern" string-literal "{" declaration-seq_opt "}"
     "extern" string-literal declaration
   attribute-specifier-seq
     attribute-specifier-seq_opt attribute-specifier
   attribute-specifier
-    "[" "[" attribute-list "]" "]"
+    "[" "[" attribute-using-prefix_opt attribute-list "]" "]"
     alignment-specifier
   alignment-specifier
     "alignas" "(" type-id "..."_opt ")"
-    "alignas" "(" assignment-expression "..."_opt ")"
+    "alignas" "(" constant-expression "..."_opt ")"
+  attribute-using-prefix
+    "using" attribute-namespace ":"
   attribute-list
     attribute_opt
     attribute-list "," attribute_opt
@@ -592,7 +666,7 @@ declarations
   attribute-namespace
     identifier
   attribute-argument-clause
-    "(" balanced-token-seq ")"
+    "(" balanced-token-seq_opt ")"
   balanced-token-seq
     balanced-token_opt
     balanced-token-seq balanced-token
@@ -619,9 +693,9 @@ declarators
     noptr-declarator "[" constant-expression_opt "]" attribute-specifier-seq_opt
     "(" ptr-declarator ")"
   parameters-and-qualifiers
-    "(" parameter-declaration-clause ")" attribute-specifier-seq_opt cv-qualifier-seq_opt ref-qualifier_opt exception-specification_opt
+    "(" parameter-declaration-clause ")" cv-qualifier-seq_opt ref-qualifier_opt noexcept-specifier_opt attribute-specifier-seq_opt
   trailing-return-type
-    "->" trailing-type-specifier-seq abstract-declarator_opt
+    "->" type-id
   ptr-operator
     "*" attribute-specifier-seq_opt cv-qualifier-seq_opt
     "&" attribute-specifier-seq_opt
@@ -636,9 +710,10 @@ declarators
     ["&", "&&"]
   declarator-id
     "..."_opt id-expression
-    nested-name-specifier_opt class-name
   type-id
     type-specifier-seq abstract-declarator_opt
+  defining-type-id
+    defining-type-specifier-seq abstract-declarator_opt
   abstract-declarator
     ptr-abstract-declarator
     noptr-abstract-declarator_opt parameters-and-qualifiers trailing-return-type
@@ -670,6 +745,7 @@ declarators
     attribute-specifier-seq_opt decl-specifier-seq abstract-declarator_opt "=" initializer-clause
   function-definition
     attribute-specifier-seq_opt decl-specifier-seq_opt declarator virt-specifier-seq_opt function-body
+    attribute-specifier-seq_opt decl-specifier-seq_opt declarator requires-clause function-body
   function-body
     ctor-initializer_opt compound-statement
     function-try-block
@@ -684,12 +760,23 @@ declarators
   initializer-clause
     assignment-expression
     braced-init-list
+  braced-init-list
+    "{" initializer-list ","_opt "}"
+    "{" designated-initializer-list ","_opt "}"
+    "{" "}"
   initializer-list
     initializer-clause "..."_opt
     initializer-list "," initializer-clause "..."_opt
-  braced-init-list
-    "{" initializer-list ","_opt "}"
-    "{" "}"
+  designated-initializer-list
+    designated-initializer-clause
+    designated-initializer-list "," designated-initializer-clause
+  designated-initializer-clause
+    designator brace-or-equal-initializer
+  designator
+    "." identifier
+  expr-or-braced-init-list
+    expression
+    braced-init-list
 classes
   class-name
     identifier
@@ -716,14 +803,17 @@ classes
     using-declaration
     static-assert-declaration
     template-declaration
+    deduction-guide
     alias-declaration
+    empty-declaration
   member-declarator-list
     member-declarator
     member-declarator-list "," member-declarator
   member-declarator
     declarator virt-specifier-seq_opt pure-specifier_opt
+    declarator requires-clause
     declarator brace-or-equal-initializer_opt
-    identifier_opt attribute-specifier-seq_opt ":" constant-expression
+    identifier_opt attribute-specifier-seq_opt ":" constant-expression brace-or-equal-initializer_opt
   virt-specifier-seq
     virt-specifier
     virt-specifier-seq virt-specifier
@@ -739,14 +829,13 @@ derived classes
     base-specifier "..."_opt
     base-specifier-list "," base-specifier "..."_opt
   base-specifier
-    attribute-specifier-seq_opt base-type-specifier
-    attribute-specifier-seq_opt "virtual" access-specifier_opt base-type-specifier
-    attribute-specifier-seq_opt access-specifier "virtual"_opt base-type-specifier
+    attribute-specifier-seq_opt class-or-decltype
+    attribute-specifier-seq_opt "virtual" access-specifier_opt class-or-decltype
+    attribute-specifier-seq_opt access-specifier "virtual"_opt class-or-decltype
   class-or-decltype
     nested-name-specifier_opt class-name
+    nested-name-specifier "template" simple-template-id
     decltype-specifier
-  base-type-specifier
-    class-or-decltype
   access-specifier
     "private"
     "protected"
@@ -775,23 +864,53 @@ overloading
   operator
     ["new", "delete", "new[]", "delete[]", "+", "-", "*", "/", "%", "^", "&", "|", "~", "!", "=", "<", ">", "+=", "-=", "*=", "/=", "%=", "^=", "&=", "|=", "<<", ">>", ">>=", "<<=", "==", "!=", "<=", ">=", "&&", "||", "++", "--", ",", "->*", "->", "()", "[]"]
   literal-operator-id
-    "operator" "\"\"" identifier
+    "operator" string-literal identifier
+    "operator" user-defined-string-literal
 templates
   template-declaration
-    "template" "<" template-parameter-list ">" declaration
+    template-head declaration
+    template-head concept-definition
+  template-head
+    "template" "<" template-parameter-list ">" requires-clause_opt
   template-parameter-list
     template-parameter
     template-parameter-list "," template-parameter
+  requires-clause
+    "requires" constraint-logical-or-expression
+  constraint-logical-or-expression
+    constraint-logical-and-expression
+    constraint-logical-or-expression "||" constraint-logical-and-expression
+  constraint-logical-and-expression
+    primary-expression
+    constraint-logical-and-expression "&&" primary-expression
+  concept-definition
+    "concept" concept-name "=" constraint-expression ";"
+  concept-name
+    identifier
   template-parameter
     type-parameter
     parameter-declaration
+    constrained-parameter
   type-parameter
-    "class" "..."_opt identifier_opt
-    "class" identifier_opt "=" type-id
-    "typename" "..."_opt identifier_opt
-    "typename" identifier_opt "=" type-id
-    "template" "<" template-parameter-list ">" "class" "..."_opt identifier_opt
-    "template" "<" template-parameter-list ">" "class" identifier_opt "=" id-expression
+    type-parameter-key "..."_opt identifier_opt
+    type-parameter-key identifier_opt "=" type-id
+    "template" "<" template-parameter-list ">" type-parameter-key "..."_opt identifier_opt
+    "template" "<" template-parameter-list ">" type-parameter-key identifier_opt "=" id-expression
+  type-parameter-key
+    "class"
+    "typename"
+  constrained-parameter
+    qualified-concept-name "..." identifier_opt
+    qualified-concept-name identifier_opt default-template-argument_opt
+  qualified-concept-name
+    nested-name-specifier_opt concept-name
+    nested-name-specifier_opt partial-concept-id
+  partial-concept-id
+    concept-name "<" template-argument-list_opt ">"
+  default-template-argument
+    "=" type-id
+    "=" id-expression
+    "=" initializer-clause
   simple-template-id
     template-name "<" template-argument-list_opt ">"
   template-id
@@ -807,6 +926,8 @@ templates
     constant-expression
     type-id
     id-expression
+  constraint-expression
+    logical-or-expression
   typename-specifier
     "typename" nested-name-specifier identifier
     "typename" nested-name-specifier "template"_opt simple-template-id
@@ -814,6 +935,8 @@ templates
     "extern"_opt "template" declaration
   explicit-specialization
     "template" "<" ">" declaration
+  deduction-guide
+    "explicit"_opt template-name "(" parameter-declaration-clause ")" "->" simple-template-id ";"
 exception handling
   try-block
     "try" compound-statement handler-seq
@@ -827,19 +950,10 @@ exception handling
     attribute-specifier-seq_opt type-specifier-seq declarator
     attribute-specifier-seq_opt type-specifier-seq abstract-declarator_opt
     "..."
-  throw-expression
-    "throw" assignment-expression_opt
-  exception-specification
-    dynamic-exception-specification
-    noexcept-specification
-  dynamic-exception-specification
-    "throw" "(" type-id-list_opt ")"
-  type-id-list
-    type-id "..."_opt
-    type-id-list "," type-id "..."_opt
-  noexcept-specification
+  noexcept-specifier
     "noexcept" "(" constant-expression ")"
     "noexcept"
+    "throw" "(" ")"
 preprocessing directives
   preprocessing-file
     group_opt
@@ -847,10 +961,21 @@ preprocessing directives
     group-part
     group group-part
   group-part
-    if-section
     control-line
+    if-section
     text-line
-    "#" non-directive
+    "#" conditionally-supported-directive
+  control-line
+    "#" "include" pp-tokens new-line
+    "#" "define" identifier replacement-list new-line
+    "#" "define" identifier lparen identifier-list_opt ")" replacement-list new-line
+    "#" "define" identifier lparen "..." ")" replacement-list new-line
+    "#" "define" identifier lparen identifier-list "," "..." ")" replacement-list new-line
+    "#" "undef" identifier new-line
+    "#" "line" pp-tokens new-line
+    "#" "error" pp-tokens_opt new-line
+    "#" "pragma" pp-tokens_opt new-line
+    "#" new-line
   if-section
     if-group elif-groups_opt else-group_opt endif-line
   if-group
@@ -866,20 +991,9 @@ preprocessing directives
     "#" "else" new-line group_opt
   endif-line
     "#" "endif" new-line
-  control-line
-    "#" "include" pp-tokens new-line
-    "#" "define" identifier replacement-list new-line
-    "#" "define" identifier lparen identifier-list_opt ")" replacement-list new-line
-    "#" "define" identifier lparen "..." ")" replacement-list new-line
-    "#" "define" identifier lparen identifier-list "," "..." ")" replacement-list new-line
-    "#" "undef" identifier new-line
-    "#" "line" pp-tokens new-line
-    "#" "error" pp-tokens_opt new-line
-    "#" "pragma" pp-tokens_opt new-line
-    "#" new-line
   text-line
     pp-tokens_opt new-line
-  non-directive
+  conditionally-supported-directive
     pp-tokens new-line
   lparen
     informal: a ( character not immediately preceded by white-space
@@ -893,3 +1007,16 @@ preprocessing directives
     pp-tokens preprocessing-token
   new-line
     informal: the new-line character
+  defined-macro-expression
+    "defined" identifier
+    "defined" "(" identifier ")"
+  h-preprocessing-token
+    informal: any preprocessing-token other than >
+  h-pp-tokens
+    h-preprocessing-token
+    h-pp-tokens h-preprocessing-token
+  has-include-expression
+    "__has_include" "(" "<" h-char-sequence ">" ")"
+    "__has_include" "(" "\"" q-char-sequence "\"" ")"
+    "__has_include" "(" string-literal ")"
+    "__has_include" "(" "<" h-pp-tokens ">" ")"
