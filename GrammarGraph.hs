@@ -5,11 +5,15 @@ module Main (main) where
 import Data.GraphViz.Types.Canonical
 import Data.GraphViz.Commands
 import Data.GraphViz.Attributes.Colors
+import Data.GraphViz.Attributes.Colors.X11
 import Data.GraphViz.Attributes.Complete
+import Data.GraphViz.Types (printDotGraph)
 import Data.Text.Lazy (pack)
+import Data.Text.Lazy.IO (putStrLn)
 import Data.Monoid (Monoid(..))
 import CxxGrammar (grammar, Section(..), Rule(..), Alternative(..), Thing(..), RuleName, SectionName, Grammar)
 import Data.List (nub)
+import Prelude hiding (putStrLn)
 
 type Graph = [(SectionName, [(RuleName, [RuleName])])]
 
@@ -40,12 +44,20 @@ ruleToDot :: Color → (RuleName, [RuleName]) → DotStatements String
 ruleToDot c (rule, children) = DotStmts
     { attrStmts = []
     , subGraphs = []
-    , nodeStmts = [DotNode from [FillColor c, Color [X11Color White], LabelFontColor (X11Color White)]]
+    , nodeStmts =
+        [DotNode from
+           [ FillColor (toColorList [c])
+           , Color [toWC $ X11Color White]
+           , LabelFontColor (X11Color White)]]
         ++ [ghostNode parentNode brokenParents | not $ hideBrokenParents]
         ++ [ghostNode childNode brokenChildren | not $ null brokenChildren]
     , edgeStmts = edges ++ [parentEdge | not $ hideBrokenParents] ++ [childEdge | not $ null brokenChildren]}
   where
-    ghostNode x y = DotNode x [Label $ StrLabel $ pack $ bigBox y, Shape BoxShape, FillColor $ X11Color Gray, Color [X11Color White]]
+    ghostNode x y = DotNode x
+      [ Label $ StrLabel $ pack $ bigBox y
+      , Shape BoxShape
+      , FillColor $ toColorList [X11Color Gray]
+      , Color $ toColorList [X11Color White]]
     from = rule
     hideBrokenParents = null brokenParents || rule == "identifier" -- hack
     brokenParents = [p | p ← parents rule, route p rule == Break]
@@ -143,6 +155,4 @@ graph :: Graph
 graph = grammarToGraph grammar
 
 main :: IO ()
-main = do
-  _ ← runGraphvizCommand Dot (graphToDot graph) Png "grammar.png" 
-  return ()
+main = putStrLn $ printDotGraph $ graphToDot graph
