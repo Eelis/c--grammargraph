@@ -14,6 +14,7 @@ import Data.Text.Lazy.IO (putStrLn)
 import Data.Monoid (Monoid(..))
 import CxxGrammar (grammar, Section(..), Rule(..), Alternative(..), Thing(..), RuleName, SectionName, Grammar)
 import Data.List (nub)
+import Data.List.Split (splitOn)
 import Prelude hiding (putStrLn)
 
 type Graph = [(SectionName, [(RuleName, [RuleName])])]
@@ -42,12 +43,14 @@ bigBox l = unlines $ if length l <= limit then l else take (limit-1) l ++ ["+ " 
   where limit = 4
 
 nodeLabel :: String -> String
-nodeLabel = go 0
+nodeLabel = go 0 . splitOn "-"
   where
-    go n [] = []
-    go n ('-':x)
-      | n > 5 = "-\\n" ++ nodeLabel x
-    go n (x:y) = x : go (n+1) y
+    left = sum . map length
+    go _ [] = ""
+    go _ [x] = x
+    go n (x : rest)
+      | n + length x >= 8, left rest > 5 = x ++ "-\n" ++ go 0 rest
+      | otherwise = x ++ "-" ++ go (n + length x) rest
 
 ruleToDot :: Color → (RuleName, [RuleName]) → DotStatements String
 ruleToDot c (rule, children) = DotStmts
@@ -106,24 +109,28 @@ route "postfix-expression" "simple-type-specifier" = Break
 route "postfix-expression" "expression-list" = Break
 route "new-declarator" "ptr-operator" = Break
 route "conversion-declarator" "ptr-operator" = Break
-route "defining-type-specifier" _ = Break
+route "defining-type-specifier" "type-specifier" = Pass
+route "defining-type-specifier" "enum-specifier" = Pass
 route "fold-expression" "cast-expression" = Break
 route "condition" "initializer-clause" = Break
+route "initializer-clause" "braced-init-list" = Pass
 route "condition" "declarator" = Pass
 route "constrained-parameter" "qualified-concept-name" = Break
 route "unqualified-id" "class-name" = Break
 route "declarator-id" "class-name" = Break
 route "constraint-logical-and-expression" "primary-expression" = Break
+route "constraint-expression" "logical-or-expression" = Break
 route "type-requirement" "type-name" = Break
 route "pseudo-destructor-name" "type-name" = Break
 route "decltype-specifier" "expression" = Pass
+route "conditional-expression" "expression" = Pass
 route "for-range-initializer" "expression" = Break
 route "literal" "string-literal" = Pass
+route "preprocessing-token" "string-literal" = Pass
 route "elaborated-type-specifier" "class-key" = Break
 route "template-argument" "type-id" = Break
 route "using-declaration" "unqualified-id" = Break
 route "mem-initializer-id" "class-or-decltype" = Break
-route "parameter-declaration" "initializer-clause" = Break
 route "member-declaration" "alias-declaration" = Break
 route "literal-operator-id" "user-defined-string-literal" = Break
 route "function-try-block" "handler-seq" = Break
@@ -137,6 +144,7 @@ route "preprocessing-token" "identifier" = Pass
 route "return-type-requirement" "constrained-parameter" = Break
 route "member-declaration" "static-assert-declaration" = Break
 route "concept-definition" "concept-name" = Break
+route "concept-definition" "constraint-expression" = Pass
 route "deduction-guide" "template-name" = Break
 route "simple-type-specifier" "template-name" = Break
 route "type-name" "class-name" = Break
@@ -145,6 +153,7 @@ route "token" "identifier" = Pass
 route "type-id-list" "type-id" = Pass
 route _ "attribute-specifier-seq" = Kill
 route "expr-or-braced-init-list" "expression" = Pass
+route "expr-or-braced-init-list" "braced-init-list" = Pass
 route "trailing-return-type" "type-id" = Pass
 route "return-type-requirement" "trailing-return-type" = Break
 route "lambda-declarator" "trailing-return-type" = Break
@@ -152,11 +161,16 @@ route "for-range-declaration" "ref-qualifier" = Break
 route "simple-declaration" "ref-qualifier" = Break
 route "init-capture" "initializer" = Break
 route "using-declarator" "unqualified-id" = Break
+route "designated-initializer-clause" "brace-or-equal-initializer" = Pass
 route "brace-or-equal-initializer" "braced-init-list" = Pass
 route "type-id" "abstract-declarator" = Pass
 route "init-declarator" "declarator" = Pass
+route "exception-declaration" "type-specifier-seq" = Pass
 route "type-id" "type-specifier-seq" = Pass
+route "enum-specifier" "enum-head" = Break
 route "primary-expression" "id-expression" = Pass
+route "primary-expression" "expression" = Pass
+route "simple-declaration" "identifier-list" = Pass
 route _ "identifier" = Kill
 route _ to
   | to `elem` words "braced-init-list constant-expression decl-specifier-seq type-specifier-seq identifier nested-name-specifier cv-qualifier-seq declarator type-id decltype-specifier expression expression-list brace-or-equal-initializer parameter-declaration-clause simple-template-id compound-statement expr-or-braced-init-list string-literal constraint-expression abstract-declarator identifier-list id-expression" = Break
