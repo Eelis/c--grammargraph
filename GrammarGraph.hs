@@ -4,6 +4,7 @@ module Main (main) where
 
 import Data.GraphViz.Types.Canonical
 import Data.GraphViz.Commands
+import Data.GraphViz.Attributes (textLabel)
 import Data.GraphViz.Attributes.Colors
 import Data.GraphViz.Attributes.Colors.X11
 import Data.GraphViz.Attributes.Complete
@@ -40,6 +41,14 @@ bigBox :: [String] → String
 bigBox l = unlines $ if length l <= limit then l else take (limit-1) l ++ ["+ " ++ show (length l - limit + 1) ++ " more"]
   where limit = 4
 
+nodeLabel :: String -> String
+nodeLabel = go 0
+  where
+    go n [] = []
+    go n ('-':x)
+      | n > 5 = "-\\n" ++ nodeLabel x
+    go n (x:y) = x : go (n+1) y
+
 ruleToDot :: Color → (RuleName, [RuleName]) → DotStatements String
 ruleToDot c (rule, children) = DotStmts
     { attrStmts = []
@@ -48,7 +57,8 @@ ruleToDot c (rule, children) = DotStmts
         [DotNode from
            [ FillColor (toColorList [c])
            , Color [toWC $ X11Color White]
-           , LabelFontColor (X11Color White)]]
+           , LabelFontColor (X11Color White)
+           , textLabel $ pack $ nodeLabel from]]
         ++ [ghostNode parentNode brokenParents | not $ hideBrokenParents]
         ++ [ghostNode childNode brokenChildren | not $ null brokenChildren]
     , edgeStmts = edges ++ [parentEdge | not $ hideBrokenParents] ++ [childEdge | not $ null brokenChildren]}
